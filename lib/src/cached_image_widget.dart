@@ -3,13 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
-typedef Widget ImageWidgetBuilder(
-    BuildContext context, ImageProvider imageProvider);
+typedef Widget ImageWidgetBuilder(BuildContext context, ImageProvider imageProvider);
 typedef Widget PlaceholderWidgetBuilder(BuildContext context, String url);
-typedef Widget ProgressIndicatorBuilder(
-    BuildContext context, String url, DownloadProgress progress);
-typedef Widget LoadingErrorWidgetBuilder(
-    BuildContext context, String url, dynamic error);
+typedef Widget ProgressIndicatorBuilder(BuildContext context, String url, DownloadProgress progress);
+typedef Widget LoadingErrorWidgetBuilder(BuildContext context, String url, dynamic error);
 
 class CachedNetworkImage extends StatefulWidget {
   /// Option to use cachemanager with other settings
@@ -136,31 +133,34 @@ class CachedNetworkImage extends StatefulWidget {
   /// If not given a value, defaults to FilterQuality.low.
   final FilterQuality filterQuality;
 
-  CachedNetworkImage({
-    Key key,
-    @required this.imageUrl,
-    this.imageBuilder,
-    this.placeholder,
-    this.progressIndicatorBuilder,
-    this.errorWidget,
-    this.fadeOutDuration = const Duration(milliseconds: 1000),
-    this.fadeOutCurve = Curves.easeOut,
-    this.fadeInDuration = const Duration(milliseconds: 500),
-    this.fadeInCurve = Curves.easeIn,
-    this.width,
-    this.height,
-    this.fit,
-    this.alignment = Alignment.center,
-    this.repeat = ImageRepeat.noRepeat,
-    this.matchTextDirection = false,
-    this.httpHeaders,
-    this.cacheManager,
-    this.useOldImageOnUrlChange = false,
-    this.color,
-    this.filterQuality = FilterQuality.low,
-    this.colorBlendMode,
-    this.placeholderFadeInDuration,
-  })  : assert(imageUrl != null),
+  int cacheVersion;
+
+  CachedNetworkImage(
+      {Key key,
+      @required this.imageUrl,
+      this.imageBuilder,
+      this.placeholder,
+      this.progressIndicatorBuilder,
+      this.errorWidget,
+      this.fadeOutDuration = const Duration(milliseconds: 1000),
+      this.fadeOutCurve = Curves.easeOut,
+      this.fadeInDuration = const Duration(milliseconds: 500),
+      this.fadeInCurve = Curves.easeIn,
+      this.width,
+      this.height,
+      this.fit,
+      this.alignment = Alignment.center,
+      this.repeat = ImageRepeat.noRepeat,
+      this.matchTextDirection = false,
+      this.httpHeaders,
+      this.cacheManager,
+      this.useOldImageOnUrlChange = false,
+      this.color,
+      this.filterQuality = FilterQuality.low,
+      this.colorBlendMode,
+      this.placeholderFadeInDuration,
+      this.cacheVersion = 0})
+      : assert(imageUrl != null),
         assert(fadeOutDuration != null),
         assert(fadeOutCurve != null),
         assert(fadeInDuration != null),
@@ -221,7 +221,10 @@ class CachedNetworkImageState extends State<CachedNetworkImage>
 
   @override
   void didUpdateWidget(CachedNetworkImage oldWidget) {
-    if (oldWidget.imageUrl != widget.imageUrl) {
+    if (oldWidget.imageUrl != widget.imageUrl || oldWidget.cacheVersion != widget.cacheVersion) {
+      if (oldWidget.cacheVersion != widget.cacheVersion) {
+        _clearImageCache();
+      }
       _streamBuilderKey = UniqueKey();
       if (!widget.useOldImageOnUrlChange) {
         _disposeImageHolders();
@@ -230,6 +233,13 @@ class CachedNetworkImageState extends State<CachedNetworkImage>
       _createFileStream();
     }
     super.didUpdateWidget(oldWidget);
+  }
+
+  ///flutter自带的Image会缓存到ImageCache中，需要将这部分缓存清除
+  void _clearImageCache() {
+    for (var imageHolder in _imageHolders) {
+      var result = PaintingBinding.instance.imageCache.evict(FileImage(imageHolder.image.file));
+    }
   }
 
   @override
@@ -243,11 +253,11 @@ class CachedNetworkImageState extends State<CachedNetworkImage>
 
     _fileResponseStream = _cacheManager()
         .getFileStream(
-          widget.imageUrl,
-          headers: widget.httpHeaders,
-          withProgress: widget.progressIndicatorBuilder != null,
-        )
-        // ignore errors if not mounted
+      widget.imageUrl,
+      headers: widget.httpHeaders,
+      withProgress: widget.progressIndicatorBuilder != null,
+    )
+    // ignore errors if not mounted
         .handleError(() {}, test: (_) => !mounted)
         .where((f) {
       if (f is FileInfo) {
@@ -264,11 +274,10 @@ class CachedNetworkImageState extends State<CachedNetworkImage>
     }
   }
 
-  void _addImage(
-      {FileInfo image,
-      DownloadProgress progress,
-      Object error,
-      Duration duration}) {
+  void _addImage({FileInfo image,
+    DownloadProgress progress,
+    Object error,
+    Duration duration}) {
     if (_imageHolders.isNotEmpty) {
       var lastHolder = _imageHolders.last;
       if (lastHolder.progress != null && progress != null) {
@@ -282,7 +291,7 @@ class CachedNetworkImageState extends State<CachedNetworkImage>
             lastHolder.animationController.duration = widget.fadeOutDuration;
           } else {
             lastHolder.animationController.duration =
-                const Duration(seconds: 1);
+            const Duration(seconds: 1);
           }
           if (widget.fadeOutCurve != null) {
             lastHolder.curve = widget.fadeOutCurve;
@@ -408,26 +417,26 @@ class CachedNetworkImageState extends State<CachedNetworkImage>
     return widget.imageBuilder != null
         ? widget.imageBuilder(context, imageProvider)
         : Image(
-            image: imageProvider,
-            fit: widget.fit,
-            width: widget.width,
-            height: widget.height,
-            alignment: widget.alignment,
-            repeat: widget.repeat,
-            color: widget.color,
-            colorBlendMode: widget.colorBlendMode,
-            matchTextDirection: widget.matchTextDirection,
-            filterQuality: widget.filterQuality,
-          );
+      image: imageProvider,
+      fit: widget.fit,
+      width: widget.width,
+      height: widget.height,
+      alignment: widget.alignment,
+      repeat: widget.repeat,
+      color: widget.color,
+      colorBlendMode: widget.colorBlendMode,
+      matchTextDirection: widget.matchTextDirection,
+      filterQuality: widget.filterQuality,
+    );
   }
 
   Widget _placeholder(BuildContext context) {
     return widget.placeholder != null
         ? widget.placeholder(context, widget.imageUrl)
         : SizedBox(
-            width: widget.width,
-            height: widget.height,
-          );
+      width: widget.width,
+      height: widget.height,
+    );
   }
 
   Widget _errorWidget(BuildContext context, Object error) {
